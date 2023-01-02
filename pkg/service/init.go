@@ -28,6 +28,7 @@ import (
 	"github.com/free5gc/smf/internal/sbi/pdusession"
 	"github.com/free5gc/smf/internal/sbi/upi"
 	"github.com/free5gc/smf/internal/util"
+	"github.com/free5gc/smf/pkg/association"
 	"github.com/free5gc/smf/pkg/factory"
 	"github.com/free5gc/util/httpwrapper"
 	logger_util "github.com/free5gc/util/logger"
@@ -271,7 +272,7 @@ func (smf *SMF) Start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	smf_context.SMF_Self().PFCPCancelFunc = cancel
 	for _, upNode := range smf_context.SMF_Self().UserPlaneInformation.UPFs {
-		go toBeAssociatedWithUPF(ctx, upNode.UPF)
+		go association.ToBeAssociatedWithUPF(ctx, upNode.UPF)
 	}
 
 	time.Sleep(1000 * time.Millisecond)

@@ -1,12 +1,14 @@
 package upi
 
 import (
+	"context"
 	"fmt"
 	"github.com/free5gc/pfcp"
 	"github.com/free5gc/pfcp/pfcpType"
 	smf_context "github.com/free5gc/smf/internal/context"
 	"github.com/free5gc/smf/internal/logger"
 	"github.com/free5gc/smf/internal/pfcp/message"
+	"github.com/free5gc/smf/pkg/association"
 	"github.com/free5gc/smf/pkg/factory"
 	"github.com/free5gc/util/httpwrapper"
 	"github.com/gin-gonic/gin"
@@ -55,7 +57,7 @@ func PostUpNodes(c *gin.Context) {
 	for _, upf := range upi.UPFs {
 		// only register new ones - same logic as in init.go L271
 		if upf.UPF.UPFStatus == smf_context.NotAssociated {
-			go toBeAssociatedWithUPF(ctx, upNode.UPF)
+			go association.ToBeAssociatedWithUPF(ctx, upf.UPF)
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "OK"})
