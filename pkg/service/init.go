@@ -270,6 +270,7 @@ func (smf *SMF) Start() {
 	udp.Run(pfcp.Dispatch)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	smf_context.SMF_Self().Ctx = ctx
 	smf_context.SMF_Self().PFCPCancelFunc = cancel
 	for _, upNode := range smf_context.SMF_Self().UserPlaneInformation.UPFs {
 		go association.ToBeAssociatedWithUPF(ctx, upNode.UPF)

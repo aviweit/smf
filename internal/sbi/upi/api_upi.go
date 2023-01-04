@@ -1,7 +1,6 @@
 package upi
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -46,15 +45,10 @@ func PostUpNodes(c *gin.Context) {
 
 	upi.UpNodesFromConfiguration(&json)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	// set only if not set before
-	if smf_context.SMF_Self().PFCPCancelFunc == nil {
-		smf_context.SMF_Self().PFCPCancelFunc = cancel
-	}
 	for _, upf := range upi.UPFs {
-		// only register new ones - same logic as in init.go L271
+		// only register new ones
 		if upf.UPF.UPFStatus == smf_context.NotAssociated {
-			go association.ToBeAssociatedWithUPF(ctx, upf.UPF)
+			go association.ToBeAssociatedWithUPF(smf_context.SMF_Self().Ctx, upf.UPF)
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "OK"})
