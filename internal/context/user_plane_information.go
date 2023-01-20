@@ -509,14 +509,14 @@ func (upi *UserPlaneInformation) GetDefaultUserPlanePathByDNNAndUPF(
 ) (path UPPath) {
 	nodeID := upf.NodeID.ResolveNodeIdToIp().String()
 
-	if upi.DefaultUserPlanePathToUPF[selection.String()] != nil {
-		path, pathExist := upi.DefaultUserPlanePathToUPF[selection.String()][nodeID]
-		logger.CtxLog.Traceln("In GetDefaultUserPlanePathByDNN")
-		logger.CtxLog.Traceln("selection: ", selection.String())
-		if pathExist {
-			return path
-		}
-	}
+//	if upi.DefaultUserPlanePathToUPF[selection.String()] != nil {
+//		path, pathExist := upi.DefaultUserPlanePathToUPF[selection.String()][nodeID]
+//		logger.CtxLog.Traceln("In GetDefaultUserPlanePathByDNN")
+//		logger.CtxLog.Traceln("selection: ", selection.String())
+//		if pathExist {
+//			return path
+//		}
+//	}
 	if pathExist := upi.GenerateDefaultPathToUPF(selection, upf); pathExist {
 		return upi.DefaultUserPlanePathToUPF[selection.String()][nodeID]
 	}

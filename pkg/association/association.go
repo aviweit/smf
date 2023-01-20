@@ -48,6 +48,16 @@ func ToBeAssociatedWithUPF(ctx context.Context, upf *smf_context.UPF) {
 	}
 }
 
+func ReleaseAllResourcesOfUPF(ctx context.Context, upf *smf_context.UPF) {
+	var upfStr string
+	if upf.NodeID.NodeIdType == pfcpType.NodeIdTypeFqdn {
+		upfStr = fmt.Sprintf("[%s](%s)", upf.NodeID.FQDN, upf.NodeID.ResolveNodeIdToIp().String())
+	} else {
+		upfStr = fmt.Sprintf("[%s]", upf.NodeID.ResolveNodeIdToIp().String())
+	}
+	releaseAllResourcesOfUPF(upf, upfStr)
+}
+
 func isDone(ctx context.Context) bool {
 	select {
 	case <-ctx.Done():
