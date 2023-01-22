@@ -305,36 +305,40 @@ func (upi *UserPlaneInformation) UpNodesToConfiguration() *factory.UserPlaneInfo
 }
 
 func (upi *UserPlaneInformation) LinksToConfiguration() *factory.UserPlaneInformation {
-//turn into debug method
 	links := make([]factory.UPLink, 0)
-	source, err := upi.selectUPPathSource()
-	if err != nil {
-		logger.InitLog.Errorf("AN Node not found\n")
+
+	for _, link := range upi.Links {
+		links = append(links, factory.UPLink{A: link.A, B: link.B,})
 	}
-	visited := make(map[*UPNode]bool)
-	queue := make([]*UPNode, 0)
-	queue = append(queue, source)
-	for {
-		node := queue[0]
-		queue = queue[1:]
-		visited[node] = true
-		for _, link := range node.Links {
-			if !visited[link] {
-				queue = append(queue, link)
-				nodeIpStr := node.NodeID.ResolveNodeIdToIp().String()
-				ipStr := link.NodeID.ResolveNodeIdToIp().String()
-				linkA := upi.UPFIPToName[nodeIpStr]
-				linkB := upi.UPFIPToName[ipStr]
-				links = append(links, factory.UPLink{
-					A: linkA,
-					B: linkB,
-				})
-			}
-		}
-		if len(queue) == 0 {
-			break
-		}
-	}
+
+//	source, err := upi.selectUPPathSource()
+//	if err != nil {
+//		logger.InitLog.Errorf("AN Node not found\n")
+//	}
+//	visited := make(map[*UPNode]bool)
+//	queue := make([]*UPNode, 0)
+//	queue = append(queue, source)
+//	for {
+//		node := queue[0]
+//		queue = queue[1:]
+//		visited[node] = true
+//		for _, link := range node.Links {
+//			if !visited[link] {
+//				queue = append(queue, link)
+//				nodeIpStr := node.NodeID.ResolveNodeIdToIp().String()
+//				ipStr := link.NodeID.ResolveNodeIdToIp().String()
+//				linkA := upi.UPFIPToName[nodeIpStr]
+//				linkB := upi.UPFIPToName[ipStr]
+//				links = append(links, factory.UPLink{
+//					A: linkA,
+//					B: linkB,
+//				})
+//			}
+//		}
+//		if len(queue) == 0 {
+//			break
+//		}
+//	}
 	return &factory.UserPlaneInformation{
 		Links: links,
 	}
