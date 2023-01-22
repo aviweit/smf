@@ -78,15 +78,18 @@ func DeleteUpNode(c *gin.Context) {
 	upNode, ok := upi.UPNodes[upfRef]
 	if ok {
 		found = true
-		logger.InitLog.Infof("UPF [%s] FOUND and is about to get removed.\n", upfRef)
 		if upNode.Type == "UPF" {
+			logger.InitLog.Infof("UPF [%s] FOUND. Release its sessions.\n", upfRef)
 			association.ReleaseAllResourcesOfUPF(smf_context.SMF_Self().Ctx, upNode.UPF)
+			logger.InitLog.Infof("UPF [%s] FOUND. Remove its NodeID.\n", upfRef)
 			smf_context.RemoveUPFNodeByNodeID(upNode.UPF.NodeID)
 		}
+		logger.InitLog.Infof("UPF [%s] FOUND. Remove it from upi.UPNodes.\n", upfRef)
 		delete(upi.UPNodes, upfRef)
 	}
 	_, ok2 := upi.UPFs[upfRef]
 	if ok2 {
+		logger.InitLog.Infof("UPF [%s] FOUND. Remove it from upi.UPFs.\n", upfRef)
 		delete(upi.UPFs, upfRef)
 	}
 
@@ -95,5 +98,16 @@ func DeleteUpNode(c *gin.Context) {
 	} else {
 		c.JSON(http.StatusNotFound, gin.H{})
 	}
+}
 
+func DeleteLink(c *gin.Context) {
+	req := httpwrapper.NewRequest(c.Request, nil)
+	req.Params["upfRef"] = c.Params.ByName("upfRef")
+
+	upfRef := req.Params["upfRef"]
+	upi := smf_context.SMF_Self().UserPlaneInformation
+	upi.LinksDeleteFromUpfName(upfRef)
+
+	// TODO: support 404
+	c.JSON(http.StatusNoContent, gin.H{})
 }

@@ -90,4 +90,10 @@ var routes = Routes{
 		"/upNodes/:upfRef",
 		DeleteUpNode,
 	},
+	{
+		"DeleteLink",
+		"DELETE",
+		"/links/:upfRef",
+		DeleteLink,
+	},
 }

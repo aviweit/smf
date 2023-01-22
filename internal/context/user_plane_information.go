@@ -27,6 +27,7 @@ type UserPlaneInformation struct {
 	UPFsIPtoID                map[string]string               // ip->id table, for speed optimization
 	DefaultUserPlanePath      map[string][]*UPNode            // DNN to Default Path
 	DefaultUserPlanePathToUPF map[string]map[string][]*UPNode // DNN and UPF to Default Path
+	Links                     []LabelLink
 }
 
 type UPNodeType string
@@ -44,6 +45,11 @@ type UPNode struct {
 	Dnn    string
 	Links  []*UPNode
 	UPF    *UPF
+}
+
+type LabelLink struct {
+	A string
+	B string
 }
 
 // UPPath represent User Plane Sequence of this path
@@ -69,6 +75,7 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 	anPool := make(map[string]*UPNode)
 	upfIPMap := make(map[string]string)
 	allUEIPPools := []*UeIPPool{}
+	links        := []LabelLink{}
 
 	for name, node := range upTopology.UPNodes {
 		upNode := new(UPNode)
@@ -160,8 +167,9 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 			logger.InitLog.Warningf("UPLink [%s] <=> [%s] not establish\n", link.A, link.B)
 			continue
 		}
-		nodeA.Links = append(nodeA.Links, nodeB)
-		nodeB.Links = append(nodeB.Links, nodeA)
+		// nodeA.Links = append(nodeA.Links, nodeB)
+		// nodeB.Links = append(nodeB.Links, nodeA)
+		links = append(links, LabelLink{A: link.A, B: link.B,})
 	}
 
 	userplaneInformation := &UserPlaneInformation{
@@ -173,9 +181,40 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 		UPFsIPtoID:                make(map[string]string),
 		DefaultUserPlanePath:      make(map[string][]*UPNode),
 		DefaultUserPlanePathToUPF: make(map[string]map[string][]*UPNode),
+		Links:                     links,
 	}
 
 	return userplaneInformation
+}
+
+func (upi *UserPlaneInformation) ReloadLinks() {
+	// Iterate through *existing* UPF list and reset their links
+	for _, node := range upi.UPFs {
+		logger.InitLog.Debugf("ReloadLinks: Reset Links for UPF %s", string(node.UPF.NodeID.IP))
+		node.Links = make([]*UPNode, 0)
+		//node.Links = []*UPNode{}
+	}
+	// Iterate through *existing* AN list and reset their links
+	for _, node := range upi.AccessNetwork {
+		logger.InitLog.Debugf("ReloadLinks: Reset Links for AN(s)") // AN does not have UPF.., string(node.UPF.NodeID.NodeIdValue))
+		node.Links = make([]*UPNode, 0)
+		//node.Links = []*UPNode{}
+	}
+	// Now rebuild Links list for the corresponding UPFs/ANs
+	for _, link := range upi.Links {
+		nodeA := upi.UPNodes[link.A]
+		nodeB := upi.UPNodes[link.B]
+		if nodeA == nil || nodeB == nil {
+			logger.InitLog.Warningf("ReloadLinks: UPLink [%s] <=> [%s] not establish\n", link.A, link.B)
+			continue
+		}
+		nodeA.Links = append(nodeA.Links, nodeB)
+		nodeB.Links = append(nodeB.Links, nodeA)
+		if nodeA.Type == UPNODE_UPF && nodeA.Type == UPNODE_UPF {
+			// AN does not have UPF
+			logger.InitLog.Debugf("ReloadLinks: A[%s] -> B[%s]", string(nodeA.UPF.NodeID.IP), string(nodeB.UPF.NodeID.IP))
+		}
+	}
 }
 
 func (upi *UserPlaneInformation) UpNodesToConfiguration() *factory.UserPlaneInformation {
@@ -266,6 +305,7 @@ func (upi *UserPlaneInformation) UpNodesToConfiguration() *factory.UserPlaneInfo
 }
 
 func (upi *UserPlaneInformation) LinksToConfiguration() *factory.UserPlaneInformation {
+//turn into debug method
 	links := make([]factory.UPLink, 0)
 	source, err := upi.selectUPPathSource()
 	if err != nil {
@@ -405,14 +445,32 @@ func (upi *UserPlaneInformation) UpNodesFromConfiguration(upTopology *factory.Us
 
 func (upi *UserPlaneInformation) LinksFromConfiguration(upTopology *factory.UserPlaneInformation) {
 	for _, link := range upTopology.Links {
-		nodeA := upi.UPNodes[link.A]
-		nodeB := upi.UPNodes[link.B]
-		if nodeA == nil || nodeB == nil {
-			logger.InitLog.Warningf("UPLink [%s] <=> [%s] not establish\n", link.A, link.B)
-			continue
+		upi.Links = append(upi.Links, LabelLink{A: link.A, B: link.B,})
+	}
+}
+
+func remove(l []LabelLink, item LabelLink) []LabelLink {
+    for i, other := range l {
+        if other == item {
+			logger.InitLog.Infof("Removing link: %+v", item)
+            return append(l[:i], l[i+1:]...)
+        }
+    }
+	logger.InitLog.Infof("Could not find link to remove: %+v", item)
+	return l
+}
+
+func (upi *UserPlaneInformation) LinksDeleteFromUpfName(upfName string) {
+	linksToRemove := []LabelLink{}
+	for _, link := range upi.Links {
+		if upfName == link.A || upfName == link.B {
+			linksToRemove = append(linksToRemove, link)
 		}
-		nodeA.Links = append(nodeA.Links, nodeB)
-		nodeB.Links = append(nodeB.Links, nodeA)
+	}
+	for _, link := range linksToRemove {
+		upi.Links = remove(upi.Links, link)
+		//logger.InitLog.Infof("Remove link: %+v from upi", link)
+		//delete(upi.Links, link)
 	}
 }
 
