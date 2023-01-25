@@ -355,7 +355,7 @@ func (p *PfdDataForApp) validate() (bool, error) {
 
 type RoutingConfig struct {
 	Info          *Info                        `yaml:"info" valid:"required"`
-	UERoutingInfo map[string]UERoutingInfo     `yaml:"ueRoutingInfo" valid:"required"`
+	UERoutingInfo map[string]UERoutingInfo     `yaml:"ueRoutingInfo" valid:"optional"`
 	RouteProf     map[RouteProfID]RouteProfile `yaml:"routeProfile,omitempty" valid:"optional"`
 	PfdDatas      []*PfdDataForApp             `yaml:"pfdDataForApp,omitempty" valid:"optional"`
 }
