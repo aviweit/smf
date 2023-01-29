@@ -86,9 +86,9 @@ func GetUEPreConfigPaths(SUPI string, upfName string) *UEPreConfigPaths {
 		return nil
 	}
 	dataPathPool := NewDataPathPool()
-	dataPathPool[1] = smfContext.UEDefaultPathPool[groupName].GetDefaultPath(upfName)
+	dataPathPool[1] = smfContext.UEDefaultPathPool[groupName].GetDefaultPath(upfName) // this is the `topology:`
 	var i int64 = 2
-	for _, dataPath := range smfContext.UEPreConfigPathPool[groupName].DataPathPool {
+	for _, dataPath := range smfContext.UEPreConfigPathPool[groupName].DataPathPool { // DataPathPool - the `path` of UPFs (i.e. `path:`)
 		firstNode := dataPath.CopyFirstDPNode()
 		path := &DataPath{
 			Activated:     false,

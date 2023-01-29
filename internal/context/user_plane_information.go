@@ -45,6 +45,7 @@ type UPNode struct {
 	Dnn    string
 	Links  []*UPNode
 	UPF    *UPF
+	NrCellId string
 }
 
 type LabelLink struct {
@@ -83,6 +84,7 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 		switch upNode.Type {
 		case UPNODE_AN:
 			upNode.ANIP = net.ParseIP(node.ANIP)
+			upNode.NrCellId = node.NrCellId
 			anPool[name] = upNode
 		case UPNODE_UPF:
 			// ParseIp() always return 16 bytes
@@ -679,10 +681,13 @@ func (upi *UserPlaneInformation) GenerateDefaultPath(selection *UPFSelectionPara
 func (upi *UserPlaneInformation) GenerateDefaultPathToUPF(selection *UPFSelectionParams, destination *UPNode) bool {
 	var source *UPNode
 
-	for _, node := range upi.AccessNetwork {
+	for name, node := range upi.AccessNetwork {
 		if node.Type == UPNODE_AN {
-			source = node
-			break
+			if node.NrCellId == selection.NrLocation.Ncgi.NrCellId {
+				source = node
+				logger.CtxLog.Infoln("UE requests PDU session through gNB: ", name)
+				break
+			}
 		}
 	}
 
@@ -828,18 +833,21 @@ func (upi *UserPlaneInformation) sortUPFListByName(upfList []*UPNode) []*UPNode 
 	return sortedUpList
 }
 
-func (upi *UserPlaneInformation) selectUPPathSource() (*UPNode, error) {
+func (upi *UserPlaneInformation) selectUPPathSource(selection *UPFSelectionParams) (*UPNode, error) {
 	// if multiple gNBs exist, select one according to some criterion
-	for _, node := range upi.AccessNetwork {
+	for name, node := range upi.AccessNetwork {
 		if node.Type == UPNODE_AN {
-			return node, nil
+			if node.NrCellId == selection.NrLocation.Ncgi.NrCellId {
+				logger.CtxLog.Infoln("UE requests PDU session through gNB: ", name)
+				return node, nil
+			}
 		}
 	}
 	return nil, errors.New("AN Node not found")
 }
 
 func (upi *UserPlaneInformation) SelectUPFAndAllocUEIP(selection *UPFSelectionParams) (*UPNode, net.IP) {
-	source, err := upi.selectUPPathSource()
+	source, err := upi.selectUPPathSource(selection)
 	if err != nil {
 		return nil, nil
 	}
