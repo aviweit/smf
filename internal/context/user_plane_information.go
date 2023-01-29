@@ -192,7 +192,13 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 func (upi *UserPlaneInformation) ReloadLinks() {
 	// Iterate through *existing* UPF list and reset their links
 	for _, node := range upi.UPFs {
-		logger.InitLog.Debugf("ReloadLinks: Reset Links for UPF %s", string(node.UPF.NodeID.IP))
+		var upfStr string
+		if node.UPF.NodeID.NodeIdType == pfcpType.NodeIdTypeFqdn {
+			upfStr = fmt.Sprintf("[%s](%s)", node.UPF.NodeID.FQDN, node.UPF.NodeID.ResolveNodeIdToIp().String())
+		} else {
+			upfStr = fmt.Sprintf("[%s]", node.UPF.NodeID.ResolveNodeIdToIp().String())
+		}
+		logger.InitLog.Debugf("ReloadLinks: Reset Links for UPF %s", upfStr)
 		node.Links = make([]*UPNode, 0)
 		//node.Links = []*UPNode{}
 	}
@@ -755,7 +761,7 @@ func getPathBetween(
 	selectedSNssai := selection.SNssai
 
 	for _, node := range cur.Links {
-		if !visited[node] {
+		if !visited[node] && node.Type == UPNODE_UPF {
 			if !node.UPF.isSupportSnssai(selectedSNssai) {
 				visited[node] = true
 				continue
@@ -791,7 +797,7 @@ func (upi *UserPlaneInformation) selectAnchorUPF(source *UPNode, selection *UPFS
 		findNewNode := false
 		visited[node] = true
 		for _, link := range node.Links {
-			if !visited[link] {
+			if !visited[link] && link.Type == UPNODE_UPF { // we can reach another AN which is not visited - ignore that
 				for _, snssaiInfo := range link.UPF.SNssaiInfos {
 					currentSnssai := &snssaiInfo.SNssai
 					if currentSnssai.Equal(targetSnssai) {
@@ -799,7 +805,7 @@ func (upi *UserPlaneInformation) selectAnchorUPF(source *UPNode, selection *UPFS
 							if dnnInfo.Dnn == selection.Dnn && dnnInfo.ContainsDNAI(selection.Dnai) {
 								queue = append(queue, link)
 								findNewNode = true
-								break
+								break // only break here ? upstream bug ?
 							}
 						}
 					}
