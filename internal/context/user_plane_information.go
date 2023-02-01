@@ -44,6 +44,7 @@ type UPNode struct {
 	Dnn    string
 	Links  []*UPNode
 	UPF    *UPF
+	NrCellId string
 }
 
 // UPPath represent User Plane Sequence of this path
@@ -76,6 +77,7 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 		switch upNode.Type {
 		case UPNODE_AN:
 			upNode.ANIP = net.ParseIP(node.ANIP)
+			upNode.NrCellId = node.NrCellId
 			anPool[name] = upNode
 		case UPNODE_UPF:
 			// ParseIp() always return 16 bytes
@@ -631,10 +633,13 @@ func (upi *UserPlaneInformation) GenerateDefaultPath(selection *UPFSelectionPara
 func (upi *UserPlaneInformation) GenerateDefaultPathToUPF(selection *UPFSelectionParams, destination *UPNode) bool {
 	var source *UPNode
 
-	for _, node := range upi.AccessNetwork {
+	for name, node := range upi.AccessNetwork {
 		if node.Type == UPNODE_AN {
-			source = node
-			break
+			if node.NrCellId == selection.NrLocation.Ncgi.NrCellId {
+				source = node
+				logger.CtxLog.Infoln("UE requests PDU session through gNB: ", name)
+				break
+			}
 		}
 	}
 
@@ -702,7 +707,7 @@ func getPathBetween(
 	selectedSNssai := selection.SNssai
 
 	for _, node := range cur.Links {
-		if !visited[node] {
+		if !visited[node] && node.Type == UPNODE_UPF { // we may reach another AN that has not been visited - so ignore it
 			if !node.UPF.isSupportSnssai(selectedSNssai) {
 				visited[node] = true
 				continue
@@ -738,7 +743,7 @@ func (upi *UserPlaneInformation) selectAnchorUPF(source *UPNode, selection *UPFS
 		findNewNode := false
 		visited[node] = true
 		for _, link := range node.Links {
-			if !visited[link] {
+			if !visited[link] && link.Type == UPNODE_UPF { // we may reach another AN that has not been visited - so ignore it
 				for _, snssaiInfo := range link.UPF.SNssaiInfos {
 					currentSnssai := &snssaiInfo.SNssai
 					if currentSnssai.Equal(targetSnssai) {
@@ -746,7 +751,7 @@ func (upi *UserPlaneInformation) selectAnchorUPF(source *UPNode, selection *UPFS
 							if dnnInfo.Dnn == selection.Dnn && dnnInfo.ContainsDNAI(selection.Dnai) {
 								queue = append(queue, link)
 								findNewNode = true
-								break
+								break // only break here ? upstream bug ?
 							}
 						}
 					}
@@ -780,18 +785,21 @@ func (upi *UserPlaneInformation) sortUPFListByName(upfList []*UPNode) []*UPNode 
 	return sortedUpList
 }
 
-func (upi *UserPlaneInformation) selectUPPathSource() (*UPNode, error) {
+func (upi *UserPlaneInformation) selectUPPathSource(selection *UPFSelectionParams) (*UPNode, error) {
 	// if multiple gNBs exist, select one according to some criterion
-	for _, node := range upi.AccessNetwork {
+	for name, node := range upi.AccessNetwork {
 		if node.Type == UPNODE_AN {
-			return node, nil
+			if node.NrCellId == selection.NrLocation.Ncgi.NrCellId {
+				logger.CtxLog.Infoln("UE requests PDU session through gNB: ", name)
+				return node, nil
+			}
 		}
 	}
 	return nil, errors.New("AN Node not found")
 }
 
 func (upi *UserPlaneInformation) SelectUPFAndAllocUEIP(selection *UPFSelectionParams) (*UPNode, net.IP) {
-	source, err := upi.selectUPPathSource()
+	source, err := upi.selectUPPathSource(selection)
 	if err != nil {
 		return nil, nil
 	}

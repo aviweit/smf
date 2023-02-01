@@ -91,6 +91,7 @@ type UPFSelectionParams struct {
 	Dnn    string
 	SNssai *SNssai
 	Dnai   string
+	NrLocation *models.NrLocation
 }
 
 // UPFInterfaceInfo store the UPF interface information
@@ -176,6 +177,11 @@ func (upfSelectionParams *UPFSelectionParams) String() string {
 	Dnai := upfSelectionParams.Dnai
 	if Dnai != "" {
 		str += fmt.Sprintf("DNAI: %s\n", Dnai)
+	}
+
+	NrLocation := upfSelectionParams.NrLocation
+	if NrLocation != nil {
+		str += fmt.Sprintf("NrCellId: %s\n", NrLocation.Ncgi.NrCellId)
 	}
 
 	return str
