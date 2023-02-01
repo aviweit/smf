@@ -271,10 +271,9 @@ func (upi *UserPlaneInformation) UpNodesToConfiguration() map[string]factory.UPN
 
 func (upi *UserPlaneInformation) LinksToConfiguration() []factory.UPLink {
 	links := make([]factory.UPLink, 0)
-	source, err := upi.selectUPPathSource()
-	if err != nil {
-		logger.InitLog.Errorf("AN Node not found\n")
-	} else {
+	// construct links from all AN root(s)
+	for sourceName, source := range upi.AccessNetwork {
+		fromANLinks := make([]factory.UPLink, 0)
 		visited := make(map[*UPNode]bool)
 		queue := make([]*UPNode, 0)
 		queue = append(queue, source)
@@ -283,13 +282,17 @@ func (upi *UserPlaneInformation) LinksToConfiguration() []factory.UPLink {
 			queue = queue[1:]
 			visited[node] = true
 			for _, link := range node.Links {
-				if !visited[link] {
+				if !visited[link] && link.Type == UPNODE_UPF { // we may reach another AN that has not been visited - so ignore it
 					queue = append(queue, link)
-					nodeIpStr := node.NodeID.ResolveNodeIdToIp().String()
+					// assume its AN (UPFIPToName can not be used for AN) otherwise override
+					linkA := sourceName
+					if node.Type == UPNODE_UPF {
+						nodeIpStr := node.NodeID.ResolveNodeIdToIp().String()
+						linkA = upi.UPFIPToName[nodeIpStr]
+					}
 					ipStr := link.NodeID.ResolveNodeIdToIp().String()
-					linkA := upi.UPFIPToName[nodeIpStr]
 					linkB := upi.UPFIPToName[ipStr]
-					links = append(links, factory.UPLink{
+					fromANLinks = append(fromANLinks, factory.UPLink{
 						A: linkA,
 						B: linkB,
 					})
@@ -299,6 +302,7 @@ func (upi *UserPlaneInformation) LinksToConfiguration() []factory.UPLink {
 				break
 			}
 		}
+		links = append(links, fromANLinks...)
 	}
 	return links
 }
