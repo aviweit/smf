@@ -292,10 +292,12 @@ func (upi *UserPlaneInformation) LinksToConfiguration() []factory.UPLink {
 					}
 					ipStr := link.NodeID.ResolveNodeIdToIp().String()
 					linkB := upi.UPFIPToName[ipStr]
-					fromANLinks = append(fromANLinks, factory.UPLink{
-						A: linkA,
-						B: linkB,
-					})
+					if !nameInLink(linkA, linkB, links) {
+						fromANLinks = append(fromANLinks, factory.UPLink{
+							A: linkA,
+							B: linkB,
+						})
+					}
 				}
 			}
 			if len(queue) == 0 {
@@ -477,6 +479,15 @@ func isOverlap(pools []*UeIPPool) bool {
 			if pools[i].pool.IsJoint(pools[j].pool) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func nameInLink(nameA, nameB string, links []factory.UPLink) bool {
+	for _, link := range links {
+		if link.A == nameA && link.B == nameB {
+			return true
 		}
 	}
 	return false
