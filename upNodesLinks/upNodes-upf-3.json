@@ -1,0 +1,37 @@
+{
+    "upNodes": {
+        "UPF-3": {
+            "type": "UPF",
+            "nodeID": "upf-3.free5gc.org",
+            "sNssaiUpfInfos": [
+              {
+                  "sNssai": {"sst": 1, "sd": "010203"},
+                  "dnnUpfInfoList": [
+                      {
+                          "dnn": "internet",
+                          "pools": [{"cidr": "10.63.0.0/16"}]
+                      }
+                  ]
+              }
+            ],
+            "interfaces": [
+                {
+                    "interfaceType": "N3",
+                    "endpoints": ["upf-3.free5gc.org"],
+                    "networkInstance": "internet"
+                },
+                {
+                    "interfaceType": "N9",
+                    "endpoints": ["upf-3.free5gc.org"],
+                    "networkInstance": "internet"
+                }
+            ]
+        }
+    },
+    "links": [
+        {
+            "A": "gNB",
+            "B": "UPF-3"
+        }
+    ]
+}
