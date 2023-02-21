@@ -4,8 +4,6 @@ Environment: free5gc-compose of three UPFs invoked with smf built from PR [#69](
 
 ## Test 1
 
-### Flow
-
 1. Start 5gcore with [smfcfg.yaml](https://github.com/free5gc/free5gc-compose/blob/master/config/smfcfg.yaml)
 
 2. Ensure `upNodes` and `links` properly reported: `curl -X GET http://127.0.0.1:8000/upi/v1/upNodesLinks`
@@ -93,3 +91,8 @@ Environment: free5gc-compose of three UPFs invoked with smf built from PR [#69](
 
    Expected: gNB, UPF, other_anchor_upf, returned as `upNodes`, gNB -> UPF, UPF -> other_anchor_upf as `links`
 
+## Test 4, 5, 6
+
+Repeat the above tests (Test 1, Test 2, Test 3) using this [smfcfg-heartbeat.yaml](./smfcfg-heartbeat.yaml).
+
+Expected: after every "Delete UPF" step - heartbeat thread of this UPF is canceled
