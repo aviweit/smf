@@ -27,6 +27,7 @@ type UserPlaneInformation struct {
 	UPFsIPtoID                map[string]string               // ip->id table, for speed optimization
 	DefaultUserPlanePath      map[string][]*UPNode            // DNN to Default Path
 	DefaultUserPlanePathToUPF map[string]map[string][]*UPNode // DNN and UPF to Default Path
+	WeightMap                 map[string]map[string]int       // UPF name -> Map of {Linked UPF names -> int}
 }
 
 type UPNodeType string
@@ -69,6 +70,7 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 	anPool := make(map[string]*UPNode)
 	upfIPMap := make(map[string]string)
 	allUEIPPools := []*UeIPPool{}
+	weightMap := make(map[string]map[string]int)
 
 	for name, node := range upTopology.UPNodes {
 		upNode := new(UPNode)
@@ -164,9 +166,15 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 			logger.InitLog.Warningf("One of link edges already exist. UPLink [%s] <=> [%s] not establish\n", link.A, link.B)
 			continue
 		}
+		if weightMap[link.A] == nil {
+			weightMap[link.A] = make(map[string]int)
+		}
+		weightMap[link.A][link.B] = link.W
+
 		nodeA.Links = append(nodeA.Links, nodeB)
 		nodeB.Links = append(nodeB.Links, nodeA)
 	}
+	logger.InitLog.Debugf("weightMap: %+v", weightMap)
 
 	userplaneInformation := &UserPlaneInformation{
 		UPNodes:                   nodePool,
@@ -177,6 +185,7 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 		UPFsIPtoID:                make(map[string]string),
 		DefaultUserPlanePath:      make(map[string][]*UPNode),
 		DefaultUserPlanePathToUPF: make(map[string]map[string][]*UPNode),
+		WeightMap:                 weightMap,
 	}
 
 	return userplaneInformation
@@ -502,21 +511,6 @@ func (upi *UserPlaneInformation) GetUPFIDByIP(ip string) string {
 	return upi.UPFsIPtoID[ip]
 }
 
-func (upi *UserPlaneInformation) GetDefaultUserPlanePathByDNN(selection *UPFSelectionParams) (path UPPath) {
-	path, pathExist := upi.DefaultUserPlanePath[selection.String()]
-	logger.CtxLog.Traceln("In GetDefaultUserPlanePathByDNN")
-	logger.CtxLog.Traceln("selection: ", selection.String())
-	if pathExist {
-		return
-	} else {
-		pathExist = upi.GenerateDefaultPath(selection)
-		if pathExist {
-			return upi.DefaultUserPlanePath[selection.String()]
-		}
-	}
-	return nil
-}
-
 func (upi *UserPlaneInformation) GetDefaultUserPlanePathByDNNAndUPF(
 	selection *UPFSelectionParams,
 	upf *UPNode,
@@ -582,10 +576,8 @@ func GenerateDataPath(upPath UPPath, smContext *SMContext) *DataPath {
 	return dataPath
 }
 
-func (upi *UserPlaneInformation) GenerateDefaultPath(selection *UPFSelectionParams) bool {
+func (upi *UserPlaneInformation) GenerateDefaultPathWeight(selection *UPFSelectionParams) bool {
 	var source *UPNode
-	var destinations []*UPNode
-
 	for _, node := range upi.AccessNetwork {
 		if node.Type == UPNODE_AN {
 			source = node
@@ -598,33 +590,13 @@ func (upi *UserPlaneInformation) GenerateDefaultPath(selection *UPFSelectionPara
 		return false
 	}
 
-	destinations = upi.selectMatchUPF(selection)
-
-	if len(destinations) == 0 {
-		logger.CtxLog.Errorf("Can't find UPF with DNN[%s] S-NSSAI[sst: %d sd: %s] DNAI[%s]\n", selection.Dnn,
-			selection.SNssai.Sst, selection.SNssai.Sd, selection.Dnai)
-		return false
-	} else {
-		logger.CtxLog.Tracef("Find UPF with DNN[%s] S-NSSAI[sst: %d sd: %s] DNAI[%s]\n", selection.Dnn,
-			selection.SNssai.Sst, selection.SNssai.Sd, selection.Dnai)
-	}
-
 	// Run DFS
 	visited := make(map[*UPNode]bool)
-
 	for _, upNode := range upi.UPNodes {
 		visited[upNode] = false
 	}
 
-	path, pathExist := getPathBetween(source, destinations[0], visited, selection)
-
-	if pathExist {
-		if path[0].Type == UPNODE_AN {
-			path = path[1:]
-		}
-		upi.DefaultUserPlanePath[selection.String()] = path
-	}
-
+	_, pathExist := getPathWeight(source, visited, selection, upi.WeightMap, upi.UPFIPToName)
 	return pathExist
 }
 
@@ -663,27 +635,6 @@ func (upi *UserPlaneInformation) GenerateDefaultPathToUPF(selection *UPFSelectio
 	}
 
 	return pathExist
-}
-
-func (upi *UserPlaneInformation) selectMatchUPF(selection *UPFSelectionParams) []*UPNode {
-	upList := make([]*UPNode, 0)
-
-	for _, upNode := range upi.UPFs {
-		for _, snssaiInfo := range upNode.UPF.SNssaiInfos {
-			currentSnssai := &snssaiInfo.SNssai
-			targetSnssai := selection.SNssai
-
-			if currentSnssai.Equal(targetSnssai) {
-				for _, dnnInfo := range snssaiInfo.DnnList {
-					if dnnInfo.Dnn == selection.Dnn && dnnInfo.ContainsDNAI(selection.Dnai) {
-						upList = append(upList, upNode)
-						break
-					}
-				}
-			}
-		}
-	}
-	return upList
 }
 
 func getPathBetween(
@@ -725,6 +676,48 @@ func getPathBetween(
 	return nil, false
 }
 
+// recursive method starting from current upf up to some anchor
+func getPathWeight(cur *UPNode, visited map[*UPNode]bool,
+	selection *UPFSelectionParams,
+	weights map[string]map[string]int, ipToName map[string]string) (path []*UPNode, pathExist bool) {
+	curName := ipToName[cur.NodeID.ResolveNodeIdToIp().String()]
+	logger.CtxLog.Debugf("getPathWeight: At UPF: %s", curName)
+	logger.CtxLog.Debugf("getPathWeight: WEIGHTS UPF: %+v", weights)
+
+	visited[cur] = true
+	selectedSNssai := selection.SNssai
+	for _, node := range cur.Links {
+		if !visited[node] {
+			name := ipToName[node.NodeID.ResolveNodeIdToIp().String()]
+			// check weight
+			logger.CtxLog.Debugf("getPathWeight: Check weight of child UPF: %s", name)
+			// do not further deep in case weight is exsausted and no matched ssnsai
+			if weights[curName][name] == 0 || !node.UPF.isSupportSnssai(selectedSNssai) {
+				logger.CtxLog.Debugf("getPathWeight: No weight for you %s", name)
+				visited[node] = true
+				continue
+			}
+
+			weights[curName][name] = weights[curName][name] - 1
+			path_tail, path_exist := getPathWeight(node, visited, selection, weights, ipToName)
+
+			if path_exist {
+				path = make([]*UPNode, 0)
+				path = append(path, cur)
+				path = append(path, path_tail...)
+				pathExist = true
+				return
+			}
+		}
+	}
+
+	path = make([]*UPNode, 0)
+	path = append(path, cur)
+	pathExist = true
+
+	return
+}
+
 func (upi *UserPlaneInformation) selectAnchorUPF(source *UPNode, selection *UPFSelectionParams) []*UPNode {
 	upList := make([]*UPNode, 0)
 	visited := make(map[*UPNode]bool)
@@ -763,6 +756,29 @@ func (upi *UserPlaneInformation) selectAnchorUPF(source *UPNode, selection *UPFS
 	return upList
 }
 
+// select anchor UPF using predefined arc weights and return its path
+func (upi *UserPlaneInformation) selectAnchorUPFWeights (*UPNode, UPPath) {
+	var source *UPNode
+	for _, node := range upi.AccessNetwork {
+		if node.Type == UPNODE_AN {
+			source = node
+			break
+		}
+	}
+
+	if source == nil {
+		logger.CtxLog.Errorf("There is no AN Node in config file!")
+		return false
+	}
+
+	// Run DFS
+	visited := make(map[*UPNode]bool)
+	for _, upNode := range upi.UPNodes {
+		visited[upNode] = false
+	}
+	path, pathExist := getPathWeight(source, visited, selection, upi.WeightMap, upi.UPFIPToName)
+}
+
 func (upi *UserPlaneInformation) sortUPFListByName(upfList []*UPNode) []*UPNode {
 	keys := make([]string, 0, len(upi.UPFs))
 	for k := range upi.UPFs {
@@ -788,6 +804,48 @@ func (upi *UserPlaneInformation) selectUPPathSource() (*UPNode, error) {
 		}
 	}
 	return nil, errors.New("AN Node not found")
+}
+
+// Traverse default topology using pre-defined weights
+func (upi *UserPlaneInformation) SelectUPFAndAllocUEIPWeights(selection *UPFSelectionParams) (*UPNode, UPPath, net.IP) {
+	source, err := upi.selectUPPathSource()
+	if err != nil {
+		return nil, nil, nil
+	}
+	selectedUPF, path := upi.selectAnchorUPFWeights(source, selection)
+	if selectedUPF == nil {
+		logger.CtxLog.Warnf("Can't find UPF with DNN[%s] S-NSSAI[sst: %d sd: %s] DNAI[%s]\n", selection.Dnn,
+			selection.SNssai.Sst, selection.SNssai.Sd, selection.Dnai)
+		return nil, nil, nil
+	}
+	logger.CtxLog.Debugf("check start UPF: %s",
+	upi.GetUPFNameByIp(selectedUPF.NodeID.ResolveNodeIdToIp().String()))
+	if selectedUPF.UPF.UPFStatus != AssociatedSetUpSuccess {
+		logger.CtxLog.Infof("PFCP Association not yet Established with: %s",
+		upi.GetUPFNameByIp(selectedUPF.NodeID.ResolveNodeIdToIp().String()))
+		return nil, nil, nil
+	}
+	pools := getUEIPPool(selectedUPF, selection)
+	if len(pools) == 0 {
+		logger.InitLog.Fatalf("No pools")
+		return nil, nil, nil
+	}
+	sortedPoolList := createPoolListForSelection(pools)
+	for _, pool := range sortedPoolList {
+		logger.CtxLog.Debugf("check start UEIPPool(%+v)", pool.ueSubNet)
+		addr := pool.allocate()
+		if addr != nil {
+			logger.CtxLog.Infof("Selected UPF: %s",
+				upi.GetUPFNameByIp(selectedUPF.NodeID.ResolveNodeIdToIp().String()))
+			return selectedUPF, path, addr
+		}
+		// if all addresses in pool are used, search next pool
+		logger.CtxLog.Debug("check next pool")
+	}
+	// checked all UPFs
+	logger.CtxLog.Warnf("UE IP pool exhausted for DNN[%s] S-NSSAI[sst: %d sd: %s] DNAI[%s]\n", selection.Dnn,
+		selection.SNssai.Sst, selection.SNssai.Sd, selection.Dnai)
+	return nil, nil, nil
 }
 
 func (upi *UserPlaneInformation) SelectUPFAndAllocUEIP(selection *UPFSelectionParams) (*UPNode, net.IP) {
@@ -836,6 +894,7 @@ func (upi *UserPlaneInformation) SelectUPFAndAllocUEIP(selection *UPFSelectionPa
 		selection.SNssai.Sst, selection.SNssai.Sd, selection.Dnai)
 	return nil, nil
 }
+
 
 func createUPFListForSelection(inputList []*UPNode) (outputList []*UPNode) {
 	offset := rand.Intn(len(inputList))

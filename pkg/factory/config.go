@@ -522,6 +522,7 @@ func (d *DnnUpfInfoItem) validate() (bool, error) {
 type UPLink struct {
 	A string `json:"A" yaml:"A" valid:"required"`
 	B string `json:"B" yaml:"B" valid:"required"`
+	W int `json:"W" yaml:"W" valid:"required"`
 }
 
 func (u *UPLink) validate() (bool, error) {
