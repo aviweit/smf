@@ -576,30 +576,6 @@ func GenerateDataPath(upPath UPPath, smContext *SMContext) *DataPath {
 	return dataPath
 }
 
-func (upi *UserPlaneInformation) GenerateDefaultPathWeight(selection *UPFSelectionParams) bool {
-	var source *UPNode
-	for _, node := range upi.AccessNetwork {
-		if node.Type == UPNODE_AN {
-			source = node
-			break
-		}
-	}
-
-	if source == nil {
-		logger.CtxLog.Errorf("There is no AN Node in config file!")
-		return false
-	}
-
-	// Run DFS
-	visited := make(map[*UPNode]bool)
-	for _, upNode := range upi.UPNodes {
-		visited[upNode] = false
-	}
-
-	_, pathExist := getPathWeight(source, visited, selection, upi.WeightMap, upi.UPFIPToName)
-	return pathExist
-}
-
 func (upi *UserPlaneInformation) GenerateDefaultPathToUPF(selection *UPFSelectionParams, destination *UPNode) bool {
 	var source *UPNode
 
@@ -765,6 +741,11 @@ func (upi *UserPlaneInformation) selectAnchorUPFWeights (source *UPNode, selecti
 	}
 	path, pathExist := getPathWeight(source, visited, selection, upi.WeightMap, upi.UPFIPToName)
 	if pathExist {
+		// remove AN
+		if path[0].Type == UPNODE_AN {
+			path = path[1:]
+		}
+		// anchorUPF, path
 		return path[len(path)-1], path
 	} else {
 		logger.CtxLog.Errorf("Could not find anchor UPF")
