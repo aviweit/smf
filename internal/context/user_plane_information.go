@@ -757,26 +757,19 @@ func (upi *UserPlaneInformation) selectAnchorUPF(source *UPNode, selection *UPFS
 }
 
 // select anchor UPF using predefined arc weights and return its path
-func (upi *UserPlaneInformation) selectAnchorUPFWeights (*UPNode, UPPath) {
-	var source *UPNode
-	for _, node := range upi.AccessNetwork {
-		if node.Type == UPNODE_AN {
-			source = node
-			break
-		}
-	}
-
-	if source == nil {
-		logger.CtxLog.Errorf("There is no AN Node in config file!")
-		return false
-	}
-
+func (upi *UserPlaneInformation) selectAnchorUPFWeights (source *UPNode, selection *UPFSelectionParams) (*UPNode, UPPath) {
 	// Run DFS
 	visited := make(map[*UPNode]bool)
 	for _, upNode := range upi.UPNodes {
 		visited[upNode] = false
 	}
 	path, pathExist := getPathWeight(source, visited, selection, upi.WeightMap, upi.UPFIPToName)
+	if pathExist {
+		return path[len(path)-1], path
+	} else {
+		logger.CtxLog.Errorf("Could not find anchor UPF")
+		return nil, nil
+	}
 }
 
 func (upi *UserPlaneInformation) sortUPFListByName(upfList []*UPNode) []*UPNode {
