@@ -793,7 +793,7 @@ func (upi *UserPlaneInformation) selectUPPathSource(selection *UPFSelectionParam
 
 // Traverse default topology using pre-defined weights
 func (upi *UserPlaneInformation) SelectUPFAndAllocUEIPWeights(selection *UPFSelectionParams) (*UPNode, UPPath, net.IP) {
-	source, err := upi.selectUPPathSource()
+	source, err := upi.selectUPPathSource(selection)
 	if err != nil {
 		return nil, nil, nil
 	}
