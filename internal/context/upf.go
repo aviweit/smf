@@ -91,6 +91,7 @@ type UPFSelectionParams struct {
 	Dnn    string
 	SNssai *SNssai
 	Dnai   string
+	NrLocation *models.NrLocation
 }
 
 // UPFInterfaceInfo store the UPF interface information

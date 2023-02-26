@@ -44,6 +44,7 @@ type UPNode struct {
 	Dnn    string
 	Links  []*UPNode
 	UPF    *UPF
+	NrCellId string
 }
 
 // UPPath represent User Plane Sequence of this path
@@ -76,6 +77,7 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 		switch upNode.Type {
 		case UPNODE_AN:
 			upNode.ANIP = net.ParseIP(node.ANIP)
+			upNode.NrCellId = node.NrCellId
 			anPool[name] = upNode
 		case UPNODE_UPF:
 			// ParseIp() always return 16 bytes
@@ -165,7 +167,7 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 			continue
 		}
 		nodeA.Links = append(nodeA.Links, nodeB)
-		nodeB.Links = append(nodeB.Links, nodeA)
+		// nodeB.Links = append(nodeB.Links, nodeA)
 	}
 
 	userplaneInformation := &UserPlaneInformation{
@@ -269,10 +271,9 @@ func (upi *UserPlaneInformation) UpNodesToConfiguration() map[string]factory.UPN
 
 func (upi *UserPlaneInformation) LinksToConfiguration() []factory.UPLink {
 	links := make([]factory.UPLink, 0)
-	source, err := upi.selectUPPathSource()
-	if err != nil {
-		logger.InitLog.Errorf("AN Node not found\n")
-	} else {
+	// construct links from all AN root(s)
+	for sourceName, source := range upi.AccessNetwork {
+		fromANLinks := make([]factory.UPLink, 0)
 		visited := make(map[*UPNode]bool)
 		queue := make([]*UPNode, 0)
 		queue = append(queue, source)
@@ -417,7 +418,7 @@ func (upi *UserPlaneInformation) LinksFromConfiguration(upTopology *factory.User
 			continue
 		}
 		nodeA.Links = append(nodeA.Links, nodeB)
-		nodeB.Links = append(nodeB.Links, nodeA)
+		// nodeB.Links = append(nodeB.Links, nodeA)
 	}
 }
 
@@ -631,10 +632,13 @@ func (upi *UserPlaneInformation) GenerateDefaultPath(selection *UPFSelectionPara
 func (upi *UserPlaneInformation) GenerateDefaultPathToUPF(selection *UPFSelectionParams, destination *UPNode) bool {
 	var source *UPNode
 
-	for _, node := range upi.AccessNetwork {
+	for name, node := range upi.AccessNetwork {
 		if node.Type == UPNODE_AN {
-			source = node
-			break
+			if node.NrCellId == selection.NrLocation.Ncgi.NrCellId {
+				source = node
+				logger.CtxLog.Infoln("UE requests PDU session through gNB: ", name)
+				break
+			}
 		}
 	}
 
@@ -780,18 +784,21 @@ func (upi *UserPlaneInformation) sortUPFListByName(upfList []*UPNode) []*UPNode 
 	return sortedUpList
 }
 
-func (upi *UserPlaneInformation) selectUPPathSource() (*UPNode, error) {
+func (upi *UserPlaneInformation) selectUPPathSource(selection *UPFSelectionParams) (*UPNode, error) {
 	// if multiple gNBs exist, select one according to some criterion
-	for _, node := range upi.AccessNetwork {
+	for name, node := range upi.AccessNetwork {
 		if node.Type == UPNODE_AN {
-			return node, nil
+			if node.NrCellId == selection.NrLocation.Ncgi.NrCellId {
+				logger.CtxLog.Infoln("UE requests PDU session through gNB: ", name)
+				return node, nil
+			}
 		}
 	}
 	return nil, errors.New("AN Node not found")
 }
 
 func (upi *UserPlaneInformation) SelectUPFAndAllocUEIP(selection *UPFSelectionParams) (*UPNode, net.IP) {
-	source, err := upi.selectUPPathSource()
+	source, err := upi.selectUPPathSource(selection)
 	if err != nil {
 		return nil, nil
 	}
