@@ -272,8 +272,9 @@ func (upi *UserPlaneInformation) UpNodesToConfiguration() map[string]factory.UPN
 func (upi *UserPlaneInformation) LinksToConfiguration() []factory.UPLink {
 	links := make([]factory.UPLink, 0)
 	// construct links from all AN root(s)
-	for sourceName, source := range upi.AccessNetwork {
-		fromANLinks := make([]factory.UPLink, 0)
+	for _, source := range upi.AccessNetwork { // sourceName
+		// TEMP for comilation to pass
+		// fromANLinks := make([]factory.UPLink, 0)
 		visited := make(map[*UPNode]bool)
 		queue := make([]*UPNode, 0)
 		queue = append(queue, source)
@@ -524,14 +525,17 @@ func (upi *UserPlaneInformation) GetDefaultUserPlanePathByDNNAndUPF(
 ) (path UPPath) {
 	nodeID := upf.NodeID.ResolveNodeIdToIp().String()
 
-	if upi.DefaultUserPlanePathToUPF[selection.String()] != nil {
-		path, pathExist := upi.DefaultUserPlanePathToUPF[selection.String()][nodeID]
-		logger.CtxLog.Traceln("In GetDefaultUserPlanePathByDNN")
-		logger.CtxLog.Traceln("selection: ", selection.String())
-		if pathExist {
-			return path
-		}
-	}
+// TEMP disable cache so that it won't select a sliced path starting from a wrong source
+// TODO: revise GenerateDefaultPathToUPF in terms of concurrency (might be better to just return path)
+
+//	if upi.DefaultUserPlanePathToUPF[selection.String()] != nil {
+//		path, pathExist := upi.DefaultUserPlanePathToUPF[selection.String()][nodeID]
+//		logger.CtxLog.Traceln("In GetDefaultUserPlanePathByDNN")
+//		logger.CtxLog.Traceln("selection: ", selection.String())
+//		if pathExist {
+//			return path
+//		}
+//	}
 	if pathExist := upi.GenerateDefaultPathToUPF(selection, upf); pathExist {
 		return upi.DefaultUserPlanePathToUPF[selection.String()][nodeID]
 	}
