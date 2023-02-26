@@ -421,6 +421,7 @@ type UPNode struct {
 	Dnn                  string                 `json:"dnn" yaml:"dnn" valid:"type(string),minstringlength(1),optional"`
 	SNssaiInfos          []SnssaiUpfInfoItem    `json:"sNssaiUpfInfos" yaml:"sNssaiUpfInfos,omitempty" valid:"optional"`
 	InterfaceUpfInfoList []InterfaceUpfInfoItem `json:"interfaces" yaml:"interfaces,omitempty" valid:"optional"`
+	NrCellId             string                 `yaml:"nrCellId,omitempty" valid:"optional"`
 }
 
 func (u *UPNode) validate() (bool, error) {
