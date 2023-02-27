@@ -750,14 +750,6 @@ func getPathWeight(cur *UPNode,
 	logger.CtxLog.Debugf("getPathWeight: At UPF/AN: %s", curName)
 	logger.CtxLog.Debugf("getPathWeight: WEIGHTS UPF: %+v", weights)
 
-//    chooser, _ := wr.NewChooser(
-//        wr.Choice{Item: "🍒", Weight: 0},
-//        wr.Choice{Item: "🍋", Weight: 1},
-//        wr.Choice{Item: "🍊", Weight: 1},
-//        wr.Choice{Item: "🍉", Weight: 3},
-//        wr.Choice{Item: "🥑", Weight: 5},
-//    )
-
 	selectedSNssai := selection.SNssai
 	choices := make([]wr.Choice, 0)
 	for i, node := range cur.Links {
@@ -767,8 +759,16 @@ func getPathWeight(cur *UPNode,
 		c := wr.NewChoice(i, weights[curName][node.Name])
 		choices = append(choices, c)
 	}
+	logger.CtxLog.Debugf("choices: %+v", choices)
+	if len(choices) == 0 {
+		path = make([]*UPNode, 0)
+		path = append(path, cur)
+		pathExist = true
+		return
+	}
 	// select child
 	chooser, _ := wr.NewChooser(choices...)
+	logger.CtxLog.Debugf("chooser: %+v", chooser)
 	result := chooser.Pick()
 	node := cur.Links[result.(int)]
 	// check weight
@@ -782,15 +782,11 @@ func getPathWeight(cur *UPNode,
 		path = append(path, path_tail...)
 		pathExist = true
 		return
+	} else {
+		logger.CtxLog.Fatalf("SHOULD NOT BE HERE")
 	}
-
-	path = make([]*UPNode, 0)
-	path = append(path, cur)
-	pathExist = true
-
-	return
+	return nil, false
 }
-
 
 func (upi *UserPlaneInformation) selectAnchorUPF(source *UPNode, selection *UPFSelectionParams) []*UPNode {
 	upList := make([]*UPNode, 0)
