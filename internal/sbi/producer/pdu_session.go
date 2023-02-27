@@ -87,6 +87,7 @@ func HandlePDUSessionSMContextCreate(request models.PostSmContextsRequest) *http
 	var selectedUPF *smf_context.UPNode
 	var ip net.IP
 	selectedUPFName := ""
+	var defaultUPPath smf_context.UPPath
 	if smf_context.SMF_Self().ULCLSupport && smf_context.CheckUEHasPreConfig(createData.Supi) {
 		groupName := smf_context.GetULCLGroupNameFromSUPI(createData.Supi)
 		defaultPathPool := smf_context.GetUEDefaultPathPool(groupName)
@@ -96,7 +97,7 @@ func HandlePDUSessionSMContextCreate(request models.PostSmContextsRequest) *http
 			selectedUPF = smf_context.GetUserPlaneInformation().UPFs[selectedUPFName]
 		}
 	} else {
-		selectedUPF, ip = smf_context.GetUserPlaneInformation().SelectUPFAndAllocUEIP(upfSelectionParams)
+		selectedUPF, defaultUPPath, ip = smf_context.GetUserPlaneInformation().SelectUPFAndAllocUEIPWeights(upfSelectionParams)
 		smContext.PDUAddress = ip
 		logger.PduSessLog.Infof("UE[%s] PDUSessionID[%d] IP[%s]",
 			smContext.Supi, smContext.PDUSessionID, smContext.PDUAddress.String())
@@ -194,8 +195,8 @@ func HandlePDUSessionSMContextCreate(request models.PostSmContextsRequest) *http
 		// UE has no pre-config path.
 		// Use default route
 		logger.PduSessLog.Infof("SUPI[%s] has no pre-config route", createData.Supi)
-		defaultUPPath := smf_context.GetUserPlaneInformation().GetDefaultUserPlanePathByDNNAndUPF(
-			upfSelectionParams, smContext.SelectedUPF)
+		//defaultUPPath := smf_context.GetUserPlaneInformation().GetDefaultUserPlanePathByDNNAndUPF(
+		//	upfSelectionParams, smContext.SelectedUPF)
 		defaultPath = smf_context.GenerateDataPath(defaultUPPath, smContext)
 		if defaultPath != nil {
 			defaultPath.IsDefaultPath = true
