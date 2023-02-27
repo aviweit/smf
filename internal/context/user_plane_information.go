@@ -46,6 +46,7 @@ type UPNode struct {
 	Links  []*UPNode
 	UPF    *UPF
 	NrCellId string
+	Name   string
 }
 
 // UPPath represent User Plane Sequence of this path
@@ -151,6 +152,7 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 
 		ipStr := upNode.NodeID.ResolveNodeIdToIp().String()
 		upfIPMap[ipStr] = name
+		upNode.Name = name
 	}
 
 	if isOverlap(allUEIPPools) {
@@ -664,8 +666,8 @@ func getPathBetween(
 func getPathWeight(cur *UPNode, visited map[*UPNode]bool,
 	selection *UPFSelectionParams,
 	weights map[string]map[string]int, ipToName map[string]string) (path []*UPNode, pathExist bool) {
-	curName := ipToName[cur.NodeID.ResolveNodeIdToIp().String()]
-	logger.CtxLog.Debugf("getPathWeight: At UPF: %s", curName)
+	curName := cur.Name
+	logger.CtxLog.Debugf("getPathWeight: At UPF/AN: %s", curName)
 	logger.CtxLog.Debugf("getPathWeight: WEIGHTS UPF: %+v", weights)
 
 	visited[cur] = true
