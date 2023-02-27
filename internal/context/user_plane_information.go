@@ -17,7 +17,7 @@ import (
 	"github.com/free5gc/smf/pkg/factory"
 	"github.com/free5gc/smf/internal/util"
 
-	"github.com/mroth/weightedrand/v2"
+	wr "github.com/mroth/weightedrand"
 )
 
 // UserPlaneInformation store userplane topology
@@ -30,7 +30,7 @@ type UserPlaneInformation struct {
 	UPFsIPtoID                map[string]string               // ip->id table, for speed optimization
 	DefaultUserPlanePath      map[string][]*UPNode            // DNN to Default Path
 	DefaultUserPlanePathToUPF map[string]map[string][]*UPNode // DNN and UPF to Default Path
-	WeightMap                 map[string]map[string]int       // UPF name -> Map of {Linked UPF names -> int}
+	WeightMap                 map[string]map[string]uint       // UPF name -> Map of {Linked UPF names -> int}
 }
 
 type UPNodeType string
@@ -74,7 +74,7 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 	anPool := make(map[string]*UPNode)
 	upfIPMap := make(map[string]string)
 	allUEIPPools := []*UeIPPool{}
-	weightMap := make(map[string]map[string]int)
+	weightMap := make(map[string]map[string]uint)
 
 	for name, node := range upTopology.UPNodes {
 		upNode := new(UPNode)
@@ -175,7 +175,7 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 			continue
 		}
 		if weightMap[link.A] == nil {
-			weightMap[link.A] = make(map[string]int)
+			weightMap[link.A] = make(map[string]uint)
 		}
 		weightMap[link.A][link.B] = link.W
 
@@ -745,26 +745,36 @@ func getPathBetween(
 // recursive method starting from current upf up to some anchor
 func getPathWeight(cur *UPNode,
 	selection *UPFSelectionParams,
-	weights map[string]map[string]int, ipToName map[string]string) (path []*UPNode, pathExist bool) {
+	weights map[string]map[string]uint, ipToName map[string]string) (path []*UPNode, pathExist bool) {
 	curName := cur.Name
 	logger.CtxLog.Debugf("getPathWeight: At UPF/AN: %s", curName)
 	logger.CtxLog.Debugf("getPathWeight: WEIGHTS UPF: %+v", weights)
 
+//    chooser, _ := wr.NewChooser(
+//        wr.Choice{Item: "🍒", Weight: 0},
+//        wr.Choice{Item: "🍋", Weight: 1},
+//        wr.Choice{Item: "🍊", Weight: 1},
+//        wr.Choice{Item: "🍉", Weight: 3},
+//        wr.Choice{Item: "🥑", Weight: 5},
+//    )
+
 	selectedSNssai := selection.SNssai
+	choices := make([]wr.Choice, 0)
 	for i, node := range cur.Links {
 		if !node.UPF.isSupportSnssai(selectedSNssai) {
 			continue
 		}
-		weightedrand.NewChoice(i, weights[curName][name])
+		c := wr.NewChoice(i, weights[curName][node.Name])
+		choices = append(choices, c)
 	}
 	// select child
+	chooser, _ := wr.NewChooser(choices...)
 	result := chooser.Pick()
-	node := cur.Links[result]
-	name := node.Name
+	node := cur.Links[result.(int)]
 	// check weight
-	logger.CtxLog.Debugf("getPathWeight: Check weight of child UPF: %s", name)
+	logger.CtxLog.Debugf("getPathWeight: Selected child: %s", node.Name)
 
-	path_tail, path_exist := getPathWeight(node, visited, selection, weights, ipToName)
+	path_tail, path_exist := getPathWeight(node, selection, weights, ipToName)
 
 	if path_exist {
 		path = make([]*UPNode, 0)
