@@ -328,6 +328,34 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 	firstDPNode := dataPath.FirstDPNode
 	logger.PduSessLog.Traceln("In ActivateTunnelAndPDR")
 	logger.PduSessLog.Traceln(dataPath.String())
+
+	sessionRule := smContext.SelectedSessionRule()
+	AuthDefQos := sessionRule.AuthDefQos
+
+	ULRate := util.BitRateTokbps(sessionRule.AuthSessAmbr.Uplink)
+	DLRate := util.BitRateTokbps(sessionRule.AuthSessAmbr.Downlink)
+
+	// Validate rate do not exceed limit
+	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {
+		logger.PduSessLog.Traceln("(Validate rate) Current DP Node IP: ", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
+		if curDataPathNode.UPF.ULMBRSum + ULRate > curDataPathNode.UPF.ULMBRLimit {
+			logger.CtxLog.Errorf("Rate U limit exceeded for UPF %s", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
+			return
+		}
+		if curDataPathNode.UPF.DLMBRSum + DLRate > curDataPathNode.UPF.DLMBRLimit {
+			logger.CtxLog.Errorf("Rate D limit exceeded for UPF %s", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
+			return
+		}
+	}
+
+	// Update rate sum
+	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {
+		logger.PduSessLog.Traceln("(Update rate) Current DP Node IP: ", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
+		curDataPathNode.UPF.ULMBRSum = curDataPathNode.UPF.ULMBRSum + ULRate
+		curDataPathNode.UPF.DLMBRSum = curDataPathNode.UPF.DLMBRSum + DLRate
+		logger.CtxLog.Infof("Rate U sum: %+v, rate D sum: %+v", curDataPathNode.UPF.ULMBRSum, curDataPathNode.UPF.DLMBRSum)
+	}
+
 	// Activate Tunnels
 	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {
 		logger.PduSessLog.Traceln("Current DP Node IP: ", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
@@ -340,9 +368,6 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 			return
 		}
 	}
-
-	sessionRule := smContext.SelectedSessionRule()
-	AuthDefQos := sessionRule.AuthDefQos
 
 	// Activate PDR
 	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {

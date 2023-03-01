@@ -73,6 +73,11 @@ type UPF struct {
 	N3Interfaces      []UPFInterfaceInfo
 	N9Interfaces      []UPFInterfaceInfo
 
+	ULMBRLimit        uint64
+	DLMBRLimit        uint64
+	ULMBRSum          uint64
+	DLMBRSum          uint64
+
 	pdrPool sync.Map
 	farPool sync.Map
 	barPool sync.Map

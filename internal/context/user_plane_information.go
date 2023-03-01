@@ -15,6 +15,7 @@ import (
 	"github.com/free5gc/smf/internal/context/pool"
 	"github.com/free5gc/smf/internal/logger"
 	"github.com/free5gc/smf/pkg/factory"
+	"github.com/free5gc/smf/internal/util"
 )
 
 // UserPlaneInformation store userplane topology
@@ -138,6 +139,9 @@ func NewUserPlaneInformation(upTopology *factory.UserPlaneInformation) *UserPlan
 				snssaiInfos = append(snssaiInfos, snssaiInfo)
 			}
 			upNode.UPF.SNssaiInfos = snssaiInfos
+			upNode.UPF.ULMBRLimit = util.BitRateTokbps(node.ULMBRLimit)
+			upNode.UPF.DLMBRLimit = util.BitRateTokbps(node.DLMBRLimit)
+
 			upfPool[name] = upNode
 		default:
 			logger.InitLog.Warningf("invalid UPNodeType: %s\n", upNode.Type)

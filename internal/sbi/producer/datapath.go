@@ -47,6 +47,7 @@ func ActivateUPFSessionAndNotifyUE(smContext *smf_context.SMContext) []SendPfcpR
 					farList = append(farList, curDataPathNode.UpLinkTunnel.PDR.FAR)
 					if curDataPathNode.UpLinkTunnel.PDR.QER != nil {
 						qerList = append(qerList, curDataPathNode.UpLinkTunnel.PDR.QER...)
+						logger.PduSessLog.Infof("qerList: %+v", qerList)
 					}
 				}
 				if curDataPathNode.DownLinkTunnel != nil && curDataPathNode.DownLinkTunnel.PDR != nil {
@@ -76,6 +77,9 @@ func ActivateUPFSessionAndNotifyUE(smContext *smf_context.SMContext) []SendPfcpR
 
 	for ip, pfcp := range pfcpPool {
 		sessionContext, exist := smContext.PFCPContext[ip]
+		for _, q := range pfcp.qerList {
+			logger.PduSessLog.Infof("UPF ip: %+v q.MBR: %+v", ip, q.MBR)
+		}
 		if !exist || sessionContext.RemoteSEID == 0 {
 			go establishPfcpSession(smContext, pfcp, resChan)
 		} else {
