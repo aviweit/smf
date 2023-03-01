@@ -337,7 +337,10 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 
 	// Validate rate do not exceed limit
 	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {
-		logger.PduSessLog.Traceln("(Validate rate) Current DP Node IP: ", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
+		logger.PduSessLog.Tracef("(Validate rate) Current DP Node IP: [%s], current SUM [U: %+v, D: %+v], slice: %+v",
+			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
+			curDataPathNode.UPF.ULMBRSum, curDataPathNode.UPF.DLMBRSum,
+			curDataPathNode.UPF.SNssaiInfos[0])
 		if curDataPathNode.UPF.ULMBRSum + ULRate > curDataPathNode.UPF.ULMBRLimit {
 			logger.CtxLog.Errorf("Rate U limit exceeded for UPF %s", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
 			return
@@ -350,10 +353,12 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 
 	// Update rate sum
 	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {
-		logger.PduSessLog.Traceln("(Update rate) Current DP Node IP: ", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
 		curDataPathNode.UPF.ULMBRSum = curDataPathNode.UPF.ULMBRSum + ULRate
 		curDataPathNode.UPF.DLMBRSum = curDataPathNode.UPF.DLMBRSum + DLRate
-		logger.CtxLog.Infof("Rate U sum: %+v, rate D sum: %+v", curDataPathNode.UPF.ULMBRSum, curDataPathNode.UPF.DLMBRSum)
+		logger.PduSessLog.Tracef("(Update rate) Current DP Node IP: [%s], current SUM [U: %+v, D: %+v], slice: %+v",
+			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
+			curDataPathNode.UPF.ULMBRSum, curDataPathNode.UPF.DLMBRSum,
+			curDataPathNode.UPF.SNssaiInfos[0])
 	}
 
 	// Activate Tunnels
