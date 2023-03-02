@@ -335,7 +335,7 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 	ULRate := util.BitRateTokbps(sessionRule.AuthSessAmbr.Uplink)
 	DLRate := util.BitRateTokbps(sessionRule.AuthSessAmbr.Downlink)
 
-	// Validate rate do not exceed limit
+	// First, Validate rate do not exceed limit
 	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {
 		logger.PduSessLog.Tracef("(Validate rate) Current DP Node IP: [%s], current SUM [U: %+v, D: %+v], slice: %+v",
 			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
@@ -351,11 +351,11 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 		}
 	}
 
-	// Update rate sum
+	// Second, Update rate sum
 	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {
 		curDataPathNode.UPF.ULMBRSum = curDataPathNode.UPF.ULMBRSum + ULRate
 		curDataPathNode.UPF.DLMBRSum = curDataPathNode.UPF.DLMBRSum + DLRate
-		logger.PduSessLog.Tracef("(Update rate) Current DP Node IP: [%s], current SUM [U: %+v, D: %+v], slice: %+v",
+		logger.PduSessLog.Tracef("(Update rate) Current DP Node IP: [%s], updated SUM [U: %+v, D: %+v], slice: %+v",
 			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
 			curDataPathNode.UPF.ULMBRSum, curDataPathNode.UPF.DLMBRSum,
 			curDataPathNode.UPF.SNssaiInfos[0])
@@ -583,9 +583,23 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 
 func (dataPath *DataPath) DeactivateTunnelAndPDR(smContext *SMContext) {
 	firstDPNode := dataPath.FirstDPNode
+	logger.PduSessLog.Traceln("In DeactivateTunnelAndPDR")
+
+	sessionRule := smContext.SelectedSessionRule()
+
+	ULRate := util.BitRateTokbps(sessionRule.AuthSessAmbr.Uplink)
+	DLRate := util.BitRateTokbps(sessionRule.AuthSessAmbr.Downlink)
 
 	var targetNodes []*DataPathNode
 	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {
+		curDataPathNode.UPF.ULMBRSum = curDataPathNode.UPF.ULMBRSum - ULRate
+		curDataPathNode.UPF.DLMBRSum = curDataPathNode.UPF.DLMBRSum - DLRate
+
+		logger.PduSessLog.Tracef("(Update rate) Current DP Node IP: [%s], updated SUM [U: %+v, D: %+v], slice: %+v",
+			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
+			curDataPathNode.UPF.ULMBRSum, curDataPathNode.UPF.DLMBRSum,
+			curDataPathNode.UPF.SNssaiInfos[0])
+
 		targetNodes = append(targetNodes, curDataPathNode)
 	}
 	// Deactivate Tunnels
