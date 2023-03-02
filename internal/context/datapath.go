@@ -322,7 +322,7 @@ func (dataPath *DataPath) String() string {
 	return str
 }
 
-func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence uint32) {
+func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence uint32) bool {
 	smContext.AllocateLocalSEIDForDataPath(dataPath)
 
 	firstDPNode := dataPath.FirstDPNode
@@ -343,11 +343,11 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 			curDataPathNode.UPF.SNssaiInfos[0])
 		if curDataPathNode.UPF.ULMBRSum + ULRate > curDataPathNode.UPF.ULMBRLimit {
 			logger.CtxLog.Errorf("Rate U limit exceeded for UPF %s", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
-			return
+			return false
 		}
 		if curDataPathNode.UPF.DLMBRSum + DLRate > curDataPathNode.UPF.DLMBRLimit {
 			logger.CtxLog.Errorf("Rate D limit exceeded for UPF %s", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
-			return
+			return false
 		}
 	}
 
@@ -366,11 +366,11 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 		logger.PduSessLog.Traceln("Current DP Node IP: ", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
 		if err := curDataPathNode.ActivateUpLinkTunnel(smContext); err != nil {
 			logger.CtxLog.Warnln(err)
-			return
+			return false
 		}
 		if err := curDataPathNode.ActivateDownLinkTunnel(smContext); err != nil {
 			logger.CtxLog.Warnln(err)
-			return
+			return false
 		}
 	}
 
@@ -384,7 +384,7 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 		} else {
 			if newQER, err := curDataPathNode.UPF.AddQER(); err != nil {
 				logger.PduSessLog.Errorln("new QER failed")
-				return
+				return false
 			} else {
 				newQER.QFI.QFI = uint8(AuthDefQos.Var5qi)
 				newQER.GateStatus = &pfcpType.GateStatus{
@@ -421,7 +421,7 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 
 			if upIP, err := iface.IP(smContext.SelectedPDUSessionType); err != nil {
 				logger.CtxLog.Errorln("ActivateTunnelAndPDR failed", err)
-				return
+				return false
 			} else {
 				ULPDR.PDI = PDI{
 					SourceInterface: pfcpType.SourceInterface{InterfaceValue: pfcpType.SourceInterfaceAccess},
@@ -468,7 +468,7 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 
 				if upIP, err := iface.IP(smContext.SelectedPDUSessionType); err != nil {
 					logger.CtxLog.Errorln("ActivateTunnelAndPDR failed", err)
-					return
+					return false
 				} else {
 					ULFAR.ForwardingParameters.OuterHeaderCreation = &pfcpType.OuterHeaderCreation{
 						OuterHeaderCreationDescription: pfcpType.OuterHeaderCreationGtpUUdpIpv4,
@@ -507,7 +507,7 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 				iface = DLDestUPF.GetInterface(models.UpInterfaceType_N9, smContext.Dnn)
 				if upIP, err := iface.IP(smContext.SelectedPDUSessionType); err != nil {
 					logger.CtxLog.Errorln("ActivateTunnelAndPDR failed", err)
-					return
+					return false
 				} else {
 					DLPDR.PDI = PDI{
 						SourceInterface: pfcpType.SourceInterface{InterfaceValue: pfcpType.SourceInterfaceCore},
@@ -546,7 +546,7 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 
 				if upIP, err := iface.IP(smContext.SelectedPDUSessionType); err != nil {
 					logger.CtxLog.Errorln("ActivateTunnelAndPDR failed", err)
-					return
+					return false
 				} else {
 					DLFAR.ForwardingParameters = &ForwardingParameters{
 						DestinationInterface: pfcpType.DestinationInterface{InterfaceValue: pfcpType.DestinationInterfaceAccess},
@@ -578,6 +578,7 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 	}
 
 	dataPath.Activated = true
+	return true
 }
 
 func (dataPath *DataPath) DeactivateTunnelAndPDR(smContext *SMContext) {

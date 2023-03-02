@@ -181,6 +181,7 @@ func HandlePDUSessionSMContextCreate(request models.PostSmContextsRequest) *http
 		logger.PduSessLog.Errorf("apply sm policy decision error: %+v", err)
 	}
 	var defaultPath *smf_context.DataPath
+	var r bool
 
 	if smf_context.SMF_Self().ULCLSupport && smf_context.CheckUEHasPreConfig(createData.Supi) {
 		logger.PduSessLog.Infof("SUPI[%s] has pre-config route", createData.Supi)
@@ -188,7 +189,7 @@ func HandlePDUSessionSMContextCreate(request models.PostSmContextsRequest) *http
 		smContext.Tunnel.DataPathPool = uePreConfigPaths.DataPathPool
 		smContext.Tunnel.PathIDGenerator = uePreConfigPaths.PathIDGenerator
 		defaultPath = smContext.Tunnel.DataPathPool.GetDefaultPath()
-		defaultPath.ActivateTunnelAndPDR(smContext, 255)
+		r = defaultPath.ActivateTunnelAndPDR(smContext, 255)
 		smContext.BPManager = smf_context.NewBPManager(createData.Supi)
 	} else {
 		// UE has no pre-config path.
@@ -200,10 +201,18 @@ func HandlePDUSessionSMContextCreate(request models.PostSmContextsRequest) *http
 		if defaultPath != nil {
 			defaultPath.IsDefaultPath = true
 			smContext.Tunnel.AddDataPath(defaultPath)
-			defaultPath.ActivateTunnelAndPDR(smContext, 255)
+			r = defaultPath.ActivateTunnelAndPDR(smContext, 255)
 		}
 	}
+	if r == false {
+		smContext.SMContextState = smf_context.InActive
+		logger.CtxLog.Traceln("SMContextState Change State: ", smContext.SMContextState.String())
+		logger.PduSessLog.Warnf("ActivateTunnelAndPDR failed \n")
+		logger.PduSessLog.Warnln("Selection Parameter: ", upfSelectionParams.String())
 
+		return makeEstRejectResAndReleaseSMContext(smContext, nasMessage.Cause5GSMInsufficientResourcesForSpecificSliceAndDNN,
+			&Nsmf_PDUSession.InsufficientResourceSliceDnn)
+	}
 	if defaultPath == nil {
 		smContext.SMContextState = smf_context.InActive
 		logger.CtxLog.Traceln("SMContextState Change State: ", smContext.SMContextState.String())
