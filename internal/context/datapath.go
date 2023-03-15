@@ -335,29 +335,17 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 	ULRate := util.BitRateTokbps(sessionRule.AuthSessAmbr.Uplink)
 	DLRate := util.BitRateTokbps(sessionRule.AuthSessAmbr.Downlink)
 
-	// First, Validate rate do not exceed limit
-	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {
-		logger.PduSessLog.Tracef("(Validate rate) Current DP Node IP: [%s], current SUM [U: %+v, D: %+v], slice: %+v",
-			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
-			curDataPathNode.UPF.ULMBRSum, curDataPathNode.UPF.DLMBRSum,
-			curDataPathNode.UPF.SNssaiInfos[0])
-		if curDataPathNode.UPF.ULMBRSum + ULRate > curDataPathNode.UPF.ULMBRLimit {
-			logger.CtxLog.Errorf("Rate U limit exceeded for UPF %s", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
-			return false
-		}
-		if curDataPathNode.UPF.DLMBRSum + DLRate > curDataPathNode.UPF.DLMBRLimit {
-			logger.CtxLog.Errorf("Rate D limit exceeded for UPF %s", curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String())
-			return false
-		}
-	}
-
-	// Second, Update rate sum
+	// Update rate sum
 	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {
 		curDataPathNode.UPF.ULMBRSum = curDataPathNode.UPF.ULMBRSum + ULRate
 		curDataPathNode.UPF.DLMBRSum = curDataPathNode.UPF.DLMBRSum + DLRate
-		logger.PduSessLog.Tracef("(Update rate) Current DP Node IP: [%s], updated SUM [U: %+v, D: %+v], slice: %+v",
+		logger.PduSessLog.Infof("(Update rate) DP Node IP: [%s], Supi: [%s] increase RATE [U: %+v, D: %+v]. Updated SUM [U: %+v, D: %+v], slice: %+v",
 			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
-			curDataPathNode.UPF.ULMBRSum, curDataPathNode.UPF.DLMBRSum,
+			smContext.Supi,
+			ULRate,
+			DLRate,
+			curDataPathNode.UPF.ULMBRSum,
+			curDataPathNode.UPF.DLMBRSum,
 			curDataPathNode.UPF.SNssaiInfos[0])
 	}
 
@@ -595,9 +583,13 @@ func (dataPath *DataPath) DeactivateTunnelAndPDR(smContext *SMContext) {
 		curDataPathNode.UPF.ULMBRSum = curDataPathNode.UPF.ULMBRSum - ULRate
 		curDataPathNode.UPF.DLMBRSum = curDataPathNode.UPF.DLMBRSum - DLRate
 
-		logger.PduSessLog.Tracef("(Update rate) Current DP Node IP: [%s], updated SUM [U: %+v, D: %+v], slice: %+v",
+		logger.PduSessLog.Info("(Update rate) DP Node IP: [%s], Supi: [%s] decrease RATE [U: %+v, D: %+v]. Updated SUM [U: %+v, D: %+v], slice: %+v",
 			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
-			curDataPathNode.UPF.ULMBRSum, curDataPathNode.UPF.DLMBRSum,
+			smContext.Supi,
+			ULRate,
+			DLRate,
+			curDataPathNode.UPF.ULMBRSum,
+			curDataPathNode.UPF.DLMBRSum,
 			curDataPathNode.UPF.SNssaiInfos[0])
 
 		targetNodes = append(targetNodes, curDataPathNode)
