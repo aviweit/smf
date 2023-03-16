@@ -339,14 +339,14 @@ func (dataPath *DataPath) ActivateTunnelAndPDR(smContext *SMContext, precedence 
 	for curDataPathNode := firstDPNode; curDataPathNode != nil; curDataPathNode = curDataPathNode.Next() {
 		curDataPathNode.UPF.ULMBRSum = curDataPathNode.UPF.ULMBRSum + ULRate
 		curDataPathNode.UPF.DLMBRSum = curDataPathNode.UPF.DLMBRSum + DLRate
-		logger.CounterLog.Infof("(Update rate) DP Node IP: [%s], Supi: [%s] increase RATE [U: %+v, D: %+v]. Updated SUM [U: %+v, D: %+v], slice: %+v",
-			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
+		logger.CounterLog.Infof("(INCREASE) Supi: [%s] Slice: %+v UPF: [%s], RATE [U: %+v, D: %+v]. Updated SUM [U: %+v, D: %+v]",
 			smContext.Supi,
+			curDataPathNode.UPF.SNssaiInfos[0].SNssai,
+			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
 			ULRate,
 			DLRate,
 			curDataPathNode.UPF.ULMBRSum,
-			curDataPathNode.UPF.DLMBRSum,
-			curDataPathNode.UPF.SNssaiInfos[0])
+			curDataPathNode.UPF.DLMBRSum)
 	}
 
 	// Activate Tunnels
@@ -583,14 +583,14 @@ func (dataPath *DataPath) DeactivateTunnelAndPDR(smContext *SMContext) {
 		curDataPathNode.UPF.ULMBRSum = curDataPathNode.UPF.ULMBRSum - ULRate
 		curDataPathNode.UPF.DLMBRSum = curDataPathNode.UPF.DLMBRSum - DLRate
 
-		logger.CounterLog.Infof("(Update rate) DP Node IP: [%s], Supi: [%s] decrease RATE [U: %+v, D: %+v]. Updated SUM [U: %+v, D: %+v], slice: %+v",
-			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
+		logger.CounterLog.Infof("(DECREASE) Supi: [%s] Slice: %+v UPF: [%s], RATE [U: %+v, D: %+v]. Updated SUM [U: %+v, D: %+v]",
 			smContext.Supi,
+			curDataPathNode.UPF.SNssaiInfos[0].SNssai,
+			curDataPathNode.UPF.NodeID.ResolveNodeIdToIp().String(),
 			ULRate,
 			DLRate,
 			curDataPathNode.UPF.ULMBRSum,
-			curDataPathNode.UPF.DLMBRSum,
-			curDataPathNode.UPF.SNssaiInfos[0])
+			curDataPathNode.UPF.DLMBRSum)
 
 		targetNodes = append(targetNodes, curDataPathNode)
 	}
