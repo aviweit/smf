@@ -21,6 +21,7 @@ const (
 
 var (
 	log         *logrus.Logger
+	log2        *logrus.Logger
 	AppLog      *logrus.Entry
 	InitLog     *logrus.Entry
 	CfgLog      *logrus.Entry
@@ -30,6 +31,8 @@ var (
 	CtxLog      *logrus.Entry
 	ConsumerLog *logrus.Entry
 	GinLog      *logrus.Entry
+
+	CounterLog  *logrus.Entry
 )
 
 func init() {
@@ -53,6 +56,18 @@ func init() {
 	CtxLog = log.WithFields(logrus.Fields{"component": "SMF", "category": "CTX"})
 	ConsumerLog = log.WithFields(logrus.Fields{"component": "SMF", "category": "Consumer"})
 	GinLog = log.WithFields(logrus.Fields{"component": "SMF", "category": "GIN"})
+
+	log2 = logrus.New()
+	log2.SetReportCaller(false)
+
+	log2.Formatter = &formatter.Formatter{
+		TimestampFormat: time.RFC3339Nano,
+		TrimMessages:    true,
+		NoFieldsSpace:   true,
+		HideKeys:        true,
+		FieldsOrder:     []string{"component", "category"},
+	}
+	CounterLog = log2.WithFields(logrus.Fields{"component": "SMF", "category": "Counter"})
 }
 
 func LogFileHook(logNfPath string, log5gcPath string) error {
@@ -86,13 +101,26 @@ func LogFileHook(logNfPath string, log5gcPath string) error {
 		return err
 	}
 
+
+	if fullPath, err := logger_util.CreateNfLogFile(logNfPath, "counters.log"); err == nil {
+		counterLogHook, hookErr := logger_util.NewFileHook(fullPath, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o666)
+		if hookErr != nil {
+			return hookErr
+		}
+		log2.Hooks.Add(counterLogHook)
+	} else {
+		return err
+	}
+
 	return nil
 }
 
 func SetLogLevel(level logrus.Level) {
 	log.SetLevel(level)
+	log2.SetLevel(level)
 }
 
 func SetReportCaller(enable bool) {
 	log.SetReportCaller(enable)
+	log2.SetReportCaller(enable)
 }
